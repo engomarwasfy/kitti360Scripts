@@ -10,7 +10,7 @@ import glob
 import math
 import json
 from collections import namedtuple
-import logging 
+import logging
 import traceback
 
 # Image processing
@@ -41,7 +41,7 @@ try:
     #from kitti360scripts.helpers.annotation import Annotation
     from kitti360scripts.helpers.labels import labels, name2label, id2label, trainId2label, category2labels
 except ImportError as err:
-    print("Failed to import all Cityscapes modules: %s" % err)
+    print(f"Failed to import all Cityscapes modules: {err}")
     sys.exit(-1)
 except Exception as e:
     logging.error(traceback.format_exc())
@@ -53,7 +53,7 @@ except:
 
 # Print an error message and quit
 def printError(message):
-    print('ERROR: ' + str(message))
+    print(f'ERROR: {str(message)}')
     sys.exit(-1)
 
 # Class for colors
@@ -96,25 +96,29 @@ CsWindow = namedtuple( 'csFile' , [ 'sequenceNb' , 'firstFrameNb' , 'lastFrameNb
 def getFileInfo(fileName):
     baseName = os.path.basename(fileName)
     sequenceName = [x for x in fileName.split('/') if x.startswith('2013_05_28')]
-    if not len(sequenceName)==1:
-        printError( 'Cannot parse given filename ({}). Does not seem to be a valid KITTI-360 file.'.format(fileName) )
+    if len(sequenceName) != 1:
+        printError(
+            f'Cannot parse given filename ({fileName}). Does not seem to be a valid KITTI-360 file.'
+        )
+
     sequenceNb = int(sequenceName[0].split('_')[4])
     frameNb = int(os.path.splitext(baseName)[0])
-    csFile = CsFile(sequenceNb, frameNb, os.path.splitext(baseName)[1])
-    return csFile
+    return CsFile(sequenceNb, frameNb, os.path.splitext(baseName)[1])
 
 # Returns a CsFile object filled from the info in the given filename
 def getWindowInfo(fileName):
     baseName = os.path.basename(fileName)
     sequenceName = [x for x in fileName.split('/') if x.startswith('2013_05_28')]
-    if not len(sequenceName)==1:
-        printError( 'Cannot parse given filename ({}). Does not seem to be a valid KITTI-360 file.'.format(fileName) )
+    if len(sequenceName) != 1:
+        printError(
+            f'Cannot parse given filename ({fileName}). Does not seem to be a valid KITTI-360 file.'
+        )
+
     sequenceNb = int(sequenceName[0].split('_')[4])
     windowName = os.path.splitext(baseName)[0]
     firstFrameNb = int(windowName.split('_')[0])
     lastFrameNb = int(windowName.split('_')[1])
-    csWindow = CsWindow(sequenceNb, firstFrameNb, lastFrameNb)
-    return csWindow
+    return CsWindow(sequenceNb, firstFrameNb, lastFrameNb)
 
 # Returns a CsFile object filled from the info in the given filename
 def getCsFileInfo(fileName):
@@ -122,13 +126,19 @@ def getCsFileInfo(fileName):
     parts = baseName.split('_')
     parts = parts[:-1] + parts[-1].split('.')
     if not parts:
-        printError( 'Cannot parse given filename ({}). Does not seem to be a valid Cityscapes file.'.format(fileName) )
+        printError(
+            f'Cannot parse given filename ({fileName}). Does not seem to be a valid Cityscapes file.'
+        )
+
     if len(parts) == 5:
         csFile = CsFile( *parts[:-1] , type2="" , ext=parts[-1] )
     elif len(parts) == 6:
         csFile = CsFile( *parts )
     else:
-        printError( 'Found {} part(s) in given filename ({}). Expected 5 or 6.'.format(len(parts) , fileName) )
+        printError(
+            f'Found {len(parts)} part(s) in given filename ({fileName}). Expected 5 or 6.'
+        )
+
 
     return csFile
 
@@ -136,7 +146,7 @@ def getCsFileInfo(fileName):
 # e.g. for city_123456_123456_gtFine_polygons.json returns city_123456_123456
 def getCoreImageFileName(filename):
     csFile = getCsFileInfo(filename)
-    return "{}_{}_{}".format( csFile.city , csFile.sequenceNb , csFile.frameNb )
+    return f"{csFile.city}_{csFile.sequenceNb}_{csFile.frameNb}"
 
 # Returns the directory name for the given filename, e.g.
 # fileName = "/foo/bar/foobar.txt"

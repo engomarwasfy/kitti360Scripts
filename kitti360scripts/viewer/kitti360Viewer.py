@@ -77,7 +77,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         # The name of the currently loaded sequence 
         self.sequenceName      = ""
         # Ground truth type
-        self.gtType            = "semantic" 
+        self.gtType            = "semantic"
         # The path of the labels. In this folder we expect a folder for each sequence 
         # Within these sequence folders we expect the label with a filename matching
         # the images, except for the extension
@@ -125,7 +125,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         # All annotated 3D points in current image, i.e. dictionary of 3D points
         self.annotationSparse3D= None
         # All annotated 3D objects in current sequence, i.e. dictionary of csBbox3D
-        self.annotation3D      = None 
+        self.annotation3D      = None
         # The current object the mouse points to. It's index in self.labels
         self.mouseObj          = -1
         # The current object the mouse points to. It's index in self.labels
@@ -160,7 +160,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         # Show point cloud or not
         self.showSparse        = False
         # 
-        self.camera            = None 
+        self.camera            = None
         #
         self.cameraId          = 0
         # Generate colormap
@@ -171,7 +171,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         except:
             self.enableDisparity = False
         # check if pillow was imported, otherwise no disparity visu possible
-        if not 'PILLOW_VERSION' in globals():
+        if 'PILLOW_VERSION' not in globals():
             self.enableDisparity = False
 
         # Default label
@@ -389,10 +389,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
 
     # Switch between instance and semantic visualization
     def selectLabel(self):
-        if self.gtType == "instance":
-            self.gtType = "semantic"
-        else:
-            self.gtType = "instance"
+        self.gtType = "semantic" if self.gtType == "instance" else "instance"
         self.update()
 
 
@@ -653,11 +650,11 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         # If not available but the polygon is empty or closed, its the mouse object
         if highlightObjId < 0 and not self.mouseOutsideImage:
             highlightObjId = self.mouseObj
-        
+
 
         ## Get the semantic and instance id of the object that is highlighted
         if highlightObjId==0: 
-            self.highlightObjLabel = '%s' % (id2label[self.mouseSemanticId].name)
+            self.highlightObjLabel = f'{id2label[self.mouseSemanticId].name}'
         else:
             self.highlightObjLabel = '%s,%d' % (id2label[self.mouseSemanticId].name, highlightObjId)
 
@@ -681,17 +678,16 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
             if obj.vertices_depth[line[0]]<0 and obj.vertices_depth[line[1]]<0:
                 continue
             elif obj.vertices_depth[line[0]]<0 or obj.vertices_depth[line[1]]<0:
-                if self.currentFile:
-                    frame = int(os.path.splitext(os.path.basename( self.currentFile ))[0])
-                    v = [obj.vertices[line[0]]*x + obj.vertices[line[1]]*(1-x) for x in np.arange(0,1,0.1)]
-                    uv, d = self.camera.project_vertices(np.asarray(v), frame)
-                    d[d<0] = 1e+6
-                    vidx = line[0] if obj.vertices_depth[line[0]] < 0 else line[1]
-                    obj.vertices_proj[0][vidx] = uv[0][np.argmin(d)]
-                    obj.vertices_proj[1][vidx] = uv[1][np.argmin(d)]
-                else:
+                if not self.currentFile:
                     continue
 
+                frame = int(os.path.splitext(os.path.basename( self.currentFile ))[0])
+                v = [obj.vertices[line[0]]*x + obj.vertices[line[1]]*(1-x) for x in np.arange(0,1,0.1)]
+                uv, d = self.camera.project_vertices(np.asarray(v), frame)
+                d[d<0] = 1e+6
+                vidx = line[0] if obj.vertices_depth[line[0]] < 0 else line[1]
+                obj.vertices_proj[0][vidx] = uv[0][np.argmin(d)]
+                obj.vertices_proj[1][vidx] = uv[1][np.argmin(d)]
             lines.append( QtCore.QLineF(obj.vertices_proj[0][line[0]],
                                   obj.vertices_proj[1][line[0]],
                                   obj.vertices_proj[0][line[1]],
@@ -933,19 +929,18 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         if ctrlPressed:
             self.transp = max(min(self.transp+(deltaSteps*0.1),1.0),0.0)
             self.update()
-        else:
-            if self.zoom:
-                # If shift is pressed, change zoom window size
-                if event.modifiers() and QtCore.Qt.Key_Shift:
-                    self.zoomSize += deltaSteps * 10
-                    self.zoomSize = max( self.zoomSize, 10   )
-                    self.zoomSize = min( self.zoomSize, 1000 )
-                # Change zoom factor
-                else:
-                    self.zoomFactor += deltaSteps * 0.05
-                    self.zoomFactor = max( self.zoomFactor, 0.1 )
-                    self.zoomFactor = min( self.zoomFactor, 10 )
-                self.update()
+        elif self.zoom:
+            # If shift is pressed, change zoom window size
+            if event.modifiers() and QtCore.Qt.Key_Shift:
+                self.zoomSize += deltaSteps * 10
+                self.zoomSize = max( self.zoomSize, 10   )
+                self.zoomSize = min( self.zoomSize, 1000 )
+            # Change zoom factor
+            else:
+                self.zoomFactor += deltaSteps * 0.05
+                self.zoomFactor = max( self.zoomFactor, 0.1 )
+                self.zoomFactor = min( self.zoomFactor, 10 )
+            self.update()
 
 
     #############################
@@ -972,7 +967,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         # get current frame
         filename = os.path.basename( self.currentFile )
         frame = int(os.path.splitext(filename)[0])
-        
+
         # Update according to mouse obj only when mouse is not pressed
         if self.mousePressObj == -1:
             self.mouseObj   = -1
@@ -981,10 +976,9 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
             self.mouseInstanceId = self.annotation2D.instanceId[pix.y(), pix.x()]
             self.mouseSemanticId = self.annotation2D.semanticId[pix.y(), pix.x()]
 
-        # get 3D annotation
-        obj = self.annotation3D(self.mouseSemanticId, self.mouseInstanceId, frame)
-        # with instances
-        if obj:
+        if obj := self.annotation3D(
+            self.mouseSemanticId, self.mouseInstanceId, frame
+        ):
             # project to the current frame
             self.camera(obj, frame)
 
@@ -994,13 +988,9 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
             objSparse = None
             if self.showSparse:
                 objSparse = self.annotationSparse3D(frame, self.mouseSemanticId, self.mouseInstanceId)
-            
+
             # get 3D sparse points
-            if objSparse:
-                self.highlightObjSparse = objSparse
-            else:
-                self.highlightObjSparse = None
-        # without instances
+            self.highlightObjSparse = objSparse or None
         else:
             self.highlightObj = None
             self.highlightObjSparse = None
@@ -1030,9 +1020,6 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         availableSequences = [seq for seq in os.listdir(label2DPath) if os.path.isdir(os.path.join(label2DPath, seq))]
         availableSequences = sorted(availableSequences)
 
-        # List of possible labels
-        items = availableSequences
-
         # Specify title
         dlgTitle = "Select new sequence"
         message = dlgTitle
@@ -1041,7 +1028,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
         question = "Which sequence would you like to view?"
         self.statusBar().showMessage(message)
 
-        if items:
+        if items := availableSequences:
             # Create and wait for dialog
             (item, ok) = QtWidgets.QInputDialog.getItem(self, dlgTitle, question,
                                                     items, 0, False)
@@ -1063,9 +1050,7 @@ class Kitti360Viewer(QtWidgets.QMainWindow):
                 self.imageChanged()
 
         else:
-
-            warning = ""
-            warning += "The data was not found. Please:\n\n"
+            warning = "" + "The data was not found. Please:\n\n"
             warning += " - make sure the scripts folder is in the KITTI-360 root folder\n"
             warning += "or\n"
             warning += " - set KITTI360_DATASET to the KITTI-360 root folder\n"

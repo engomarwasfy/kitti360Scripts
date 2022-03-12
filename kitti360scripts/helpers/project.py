@@ -10,7 +10,7 @@ def readYAMLFile(fileName):
     ret = {}
     skip_lines=1    # Skip the first line which says "%YAML:1.0". Or replace it with "%YAML 1.0"
     with open(fileName) as fin:
-        for i in range(skip_lines):
+        for _ in range(skip_lines):
             fin.readline()
         yamlFileOut = fin.read()
         myRe = re.compile(r":([^ ])")   # Add space after ":", if it doesn't exist. Python yaml requirement
@@ -33,11 +33,10 @@ class Camera:
         for frame, pose in zip(frames, poses): 
             pose = np.concatenate((pose, np.array([0.,0.,0.,1.]).reshape(1,4)))
             # consider the rectification for perspective cameras
-            if self.cam_id==0 or self.cam_id==1:
+            if self.cam_id in [0, 1]:
                 self.cam2world[frame] = np.matmul(np.matmul(pose, self.camToPose),
                                                   np.linalg.inv(self.R_rect))
-            # fisheye cameras
-            elif self.cam_id==2 or self.cam_id==3:
+            elif self.cam_id in [2, 3]:
                 self.cam2world[frame] = np.matmul(pose, self.camToPose)
             else:
                 raise RuntimeError('Unknown Camera ID!')
@@ -45,16 +44,17 @@ class Camera:
 
     def world2cam(self, points, R, T, inverse=False):
         assert (points.ndim==R.ndim)
-        assert (T.ndim==R.ndim or T.ndim==(R.ndim-1)) 
+        assert T.ndim in [R.ndim, R.ndim-1]
         ndim=R.ndim
         if ndim==2:
             R = np.expand_dims(R, 0) 
             T = np.reshape(T, [1, -1, 3])
             points = np.expand_dims(points, 0)
-        if not inverse:
-            points = np.matmul(R, points.transpose(0,2,1)).transpose(0,2,1) + T
-        else:
-            points = np.matmul(R.transpose(0,2,1), (points - T).transpose(0,2,1))
+        points = (
+            np.matmul(R.transpose(0, 2, 1), (points - T).transpose(0, 2, 1))
+            if inverse
+            else np.matmul(R, points.transpose(0, 2, 1)).transpose(0, 2, 1) + T
+        )
 
         if ndim==2:
             points = points[0]
@@ -97,7 +97,7 @@ class CameraPerspective(Camera):
 
     def __init__(self, root_dir, seq='2013_05_28_drive_0009_sync', cam_id=0):
         # perspective camera ids: {0,1}, fisheye camera ids: {2,3}
-        assert (cam_id==0 or cam_id==1)
+        assert cam_id in [0, 1]
 
         pose_dir = os.path.join(root_dir, 'data_poses', seq)
         calib_dir = os.path.join(root_dir, 'calibration')
@@ -152,7 +152,7 @@ class CameraPerspective(Camera):
 class CameraFisheye(Camera):
     def __init__(self, root_dir, seq='2013_05_28_drive_0009_sync', cam_id=2):
         # perspective camera ids: {0,1}, fisheye camera ids: {2,3}
-        assert (cam_id==2 or cam_id==3)
+        assert cam_id in [2, 3]
 
         pose_dir = os.path.join(root_dir, 'data_poses', seq)
         calib_dir = os.path.join(root_dir, 'calibration')
@@ -209,15 +209,14 @@ if __name__=="__main__":
     else:
         kitti360Path = os.path.join(os.path.dirname(
                                 os.path.realpath(__file__)), '..', '..')
-    
+
     seq = 3
     cam_id = 2
     sequence = '2013_05_28_drive_%04d_sync'%seq
     # perspective
-    if cam_id == 0 or cam_id == 1:
+    if cam_id in {0, 1}:
         camera = CameraPerspective(kitti360Path, sequence, cam_id)
-    # fisheye
-    elif cam_id == 2 or cam_id == 3:
+    elif cam_id in {2, 3}:
         camera = CameraFisheye(kitti360Path, sequence, cam_id)
         print(camera.fi)
     else:
@@ -226,15 +225,14 @@ if __name__=="__main__":
     # loop over frames
     for frame in camera.frames:
         # perspective
-        if cam_id == 0 or cam_id == 1:
+        if cam_id in {0, 1}:
             image_file = os.path.join(kitti360Path, 'data_2d_raw', sequence, 'image_%02d' % cam_id, 'data_rect', '%010d.png'%frame)
-        # fisheye
-        elif cam_id == 2 or cam_id == 3:
+        elif cam_id in {2, 3}:
             image_file = os.path.join(kitti360Path, 'data_2d_raw', sequence, 'image_%02d' % cam_id, 'data_rgb', '%010d.png'%frame)
         else:
             raise RuntimeError('Invalid Camera ID!')
         if not os.path.isfile(image_file):
-            print('Missing %s ...' % image_file)
+            print(f'Missing {image_file} ...')
             continue
 
 
@@ -252,7 +250,7 @@ if __name__=="__main__":
         for k,v in annotation3D.objects.items():
             if len(v.keys())==1 and (-1 in v.keys()): # show static only
                 obj3d = v[-1]
-                if not id2label[obj3d.semanticId].name=='building': # show buildings only
+                if id2label[obj3d.semanticId].name != 'building': # show buildings only
                     continue
                 camera(obj3d, frame)
                 vertices = np.asarray(obj3d.vertices_proj).T

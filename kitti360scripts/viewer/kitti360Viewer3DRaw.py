@@ -48,7 +48,7 @@ class Kitti360Viewer3DRaw(object):
     def loadVelodyneData(self, frame=0):
         pcdFile = os.path.join(self.raw3DPcdPath, '%010d.bin' % frame)
         if not os.path.isfile(pcdFile):
-            raise RuntimeError('%s does not exist!' % pcdFile)
+            raise RuntimeError(f'{pcdFile} does not exist!')
         pcd = np.fromfile(pcdFile, dtype=np.float32)
         pcd = np.reshape(pcd,[-1,4])
         return pcd 
@@ -56,7 +56,7 @@ class Kitti360Viewer3DRaw(object):
     def loadSickData(self, frame=0):
         pcdFile = os.path.join(self.raw3DPcdPath, '%010d.bin' % frame)
         if not os.path.isfile(pcdFile):
-            raise RuntimeError('%s does not exist!' % pcdFile)
+            raise RuntimeError(f'{pcdFile} does not exist!')
         pcd = np.fromfile(pcdFile, dtype=np.float32)
         pcd = np.reshape(pcd,[-1,2])
         pcd = np.concatenate([np.zeros_like(pcd[:,0:1]), -pcd[:,0:1], pcd[:,1:2]], axis=1)
@@ -74,7 +74,7 @@ def projectVeloToImage(cam_id=0, seq=0):
     else:
         kitti360Path = os.path.join(os.path.dirname(
                                 os.path.realpath(__file__)), '..', '..')
-    
+
     sequence = '2013_05_28_drive_%04d_sync'%seq
 
     # perspective camera
@@ -88,7 +88,7 @@ def projectVeloToImage(cam_id=0, seq=0):
 
     # object for parsing 3d raw data 
     velo = Kitti360Viewer3DRaw(mode='velodyne', seq=seq)
-    
+
     # cam_0 to velo
     fileCameraToVelo = os.path.join(kitti360Path, 'calibration', 'calib_cam_to_velo.txt')
     TrCam0ToVelo = loadCalibrationRigid(fileCameraToVelo)
@@ -105,9 +105,9 @@ def projectVeloToImage(cam_id=0, seq=0):
         TrCamToVelo = TrCam0ToVelo @ TrCamkToCam0
         # Tr(velo -> cam_k)
         TrVeloToCam[k] = np.linalg.inv(TrCamToVelo)
-    
+
     # take the rectification into account for perspective cameras
-    if cam_id==0 or cam_id == 1:
+    if cam_id in [0, 1]:
         TrVeloToRect = np.matmul(camera.R_rect, TrVeloToCam['image_%02d' % cam_id])
     else:
         TrVeloToRect = TrVeloToCam['image_%02d' % cam_id]
@@ -143,7 +143,7 @@ def projectVeloToImage(cam_id=0, seq=0):
         # load RGB image for visualization
         imagePath = os.path.join(kitti360Path, 'data_2d_raw', sequence, 'image_%02d' % cam_id, sub_dir, '%010d.png' % frame)
         if not os.path.isfile(imagePath):
-            raise RuntimeError('Image file %s does not exist!' % imagePath)
+            raise RuntimeError(f'Image file {imagePath} does not exist!')
 
         colorImage = np.array(Image.open(imagePath)) / 255.
         depthImage = cm(depthMap/depthMap.max())[...,:3]

@@ -83,9 +83,11 @@ def getPrediction( args, groundTruthFile ):
 
     # walk the prediction path, if not happened yet
     if not args.predictionWalk:
-        walk = []
-        for root, dirnames, filenames in os.walk(args.predictionPath):
-            walk.append( (root,filenames) )
+        walk = [
+            (root, filenames)
+            for root, dirnames, filenames in os.walk(args.predictionPath)
+        ]
+
         args.predictionWalk = walk
 
     csWindow = getWindowInfo(groundTruthFile)
@@ -97,10 +99,10 @@ def getPrediction( args, groundTruthFile ):
             if not predictionFile:
                 predictionFile = os.path.join(root, filename)
             else:
-                printError("Found multiple predictions for ground truth {}".format(groundTruthFile))
+                printError(f"Found multiple predictions for ground truth {groundTruthFile}")
 
     if not predictionFile:
-        print("Found no prediction for ground truth {}".format(groundTruthFile))
+        print(f"Found no prediction for ground truth {groundTruthFile}")
 
     return predictionFile
 
@@ -115,7 +117,10 @@ def getGroundTruth(groundTruthListFile, eval_every=1):
         printError("Could not find a result root folder. Please read the instructions of this method.")
 
     if not os.path.isfile(groundTruthListFile):
-        printError("Could not open %s. Please read the instructions of this method." % groundTruthListFile)
+        printError(
+            f"Could not open {groundTruthListFile}. Please read the instructions of this method."
+        )
+
 
     with open(groundTruthListFile, 'r') as f:
         lines = f.read().splitlines()
@@ -125,7 +130,10 @@ def getGroundTruth(groundTruthListFile, eval_every=1):
         if i % eval_every == 0:
             groundTruthFile = os.path.join(rootPath, line)
             if not os.path.isfile(groundTruthFile):
-                printError("Could not open %s. Please read the instructions of this method." % groundTruthFile)
+                printError(
+                    f"Could not open {groundTruthFile}. Please read the instructions of this method."
+                )
+
             groundTruthFiles.append(groundTruthFile)
     return groundTruthFiles
         
@@ -149,8 +157,8 @@ else:
 if 'KITTI360_EXPORT_DIR' in os.environ:
     export_dir = os.environ['KITTI360_EXPORT_DIR']
     if not os.path.isdir(export_dir):
-        raise ValueError("KITTI360_EXPORT_DIR {} is not a directory".format(export_dir))
-    args.exportFile = "{}/resultPixelLevelSemanticLabeling.json".format(export_dir)
+        raise ValueError(f"KITTI360_EXPORT_DIR {export_dir} is not a directory")
+    args.exportFile = f"{export_dir}/resultPixelLevelSemanticLabeling.json"
 else:
     args.exportFile = os.path.join(args.kitti360Path, "evaluationResults", "resultPixelLevelSemanticLabeling.json")
 
@@ -196,16 +204,16 @@ def generateMatrix(args):
     return np.zeros(shape=(maxId+1, maxId+1),dtype=np.float64)
 
 def generateInstanceStats(args):
-    instanceStats = {}
-    instanceStats["classes"   ] = {}
-    instanceStats["categories"] = {}
+    instanceStats = {"classes": {}, "categories": {}}
     for label in labels:
         if label.hasInstances and not label.ignoreInEval:
-            instanceStats["classes"][label.name] = {}
-            instanceStats["classes"][label.name]["tp"] = 0.0
-            instanceStats["classes"][label.name]["tpWeighted"] = 0.0
-            instanceStats["classes"][label.name]["fn"] = 0.0
-            instanceStats["classes"][label.name]["fnWeighted"] = 0.0
+            instanceStats["classes"][label.name] = {
+                "tp": 0.0,
+                "tpWeighted": 0.0,
+                "fn": 0.0,
+                "fnWeighted": 0.0,
+            }
+
     for category in category2labels:
         labelIds = []
         allInstances = True
@@ -219,25 +227,25 @@ def generateInstanceStats(args):
         if not allInstances:
             continue
 
-        instanceStats["categories"][category] = {}
-        instanceStats["categories"][category]["tp"] = 0.0
-        instanceStats["categories"][category]["tpWeighted"] = 0.0
-        instanceStats["categories"][category]["fn"] = 0.0
-        instanceStats["categories"][category]["fnWeighted"] = 0.0
-        instanceStats["categories"][category]["labelIds"] = labelIds
+        instanceStats["categories"][category] = {
+            "tp": 0.0,
+            "tpWeighted": 0.0,
+            "fn": 0.0,
+            "fnWeighted": 0.0,
+            "labelIds": labelIds,
+        }
 
     return instanceStats
 
 
 # Get absolute or normalized value from field in confusion matrix.
 def getMatrixFieldValue(confMatrix, i, j, args):
-    if args.normalized:
-        rowSum = confMatrix[i].sum()
-        if (rowSum == 0):
-            return float('nan')
-        return float(confMatrix[i][j]) / rowSum
-    else:
+    if not args.normalized:
         return confMatrix[i][j]
+    rowSum = confMatrix[i].sum()
+    if (rowSum == 0):
+        return float('nan')
+    return float(confMatrix[i][j]) / rowSum
 
 # Calculate and return IOU score for a particular label
 def getIouScoreForLabel(label, confMatrix, args):
@@ -257,7 +265,12 @@ def getIouScoreForLabel(label, confMatrix, args):
     # Only pixels that are not on a pixel with ground truth label that is ignored
     # The column sum of the corresponding column in the confusion matrix
     # without the ignored rows and without the actual label of interest
-    notIgnored = [l for l in args.evalLabels if not trainId2label[l].ignoreInEval and not l==label]
+    notIgnored = [
+        l
+        for l in args.evalLabels
+        if not trainId2label[l].ignoreInEval and l != label
+    ]
+
     fp = np.longlong(confMatrix[notIgnored,label].sum())
 
     # the denominator of the IOU score
@@ -274,13 +287,18 @@ def getInstanceIouScoreForLabel(label, confMatrix, instStats, args):
         return float('nan')
 
     labelName = trainId2label[label].name
-    if not labelName in instStats["classes"]:
+    if labelName not in instStats["classes"]:
         return float('nan')
 
     tp = instStats["classes"][labelName]["tpWeighted"]
     fn = instStats["classes"][labelName]["fnWeighted"]
     # false postives computed as above
-    notIgnored = [l for l in args.evalLabels if not trainId2label[l].ignoreInEval and not l==label]
+    notIgnored = [
+        l
+        for l in args.evalLabels
+        if not trainId2label[l].ignoreInEval and l != label
+    ]
+
     fp = np.longlong(confMatrix[notIgnored,label].sum())
 
     # the denominator of the IOU score
@@ -344,7 +362,7 @@ def getIouScoreForCategory(category, confMatrix, args):
 
 # Calculate and return IOU score for a particular category
 def getInstanceIouScoreForCategory(category, confMatrix, instStats, args):
-    if not category in instStats["categories"]:
+    if category not in instStats["categories"]:
         return float('nan')
     labelIds = instStats["categories"][category]["labelIds"]
 
@@ -368,10 +386,7 @@ def getInstanceIouScoreForCategory(category, confMatrix, instStats, args):
 # create a dictionary containing all relevant results
 def createResultDict( confMatrix, classScores, classInstScores, categoryScores, categoryInstScores, perImageStats, args ):
     # write JSON result file
-    wholeData = {}
-    wholeData["confMatrix"] = confMatrix.tolist()
-    wholeData["priors"] = {}
-    wholeData["labels"] = {}
+    wholeData = {"confMatrix": confMatrix.tolist(), "priors": {}, "labels": {}}
     for label in args.evalLabels:
         wholeData["priors"][trainId2label[label].name] = getPrior(label, confMatrix)
         wholeData["labels"][trainId2label[label].name] = label
@@ -415,8 +430,8 @@ def printConfMatrix(confMatrix, args):
     print("\b{text:{fill}>{width}}".format(width=args.printRow + 3, fill='-', text=" "))
 
     # print matrix
-    for x in range(0, confMatrix.shape[0]):
-        if (not x in args.evalLabels):
+    for x in range(confMatrix.shape[0]):
+        if x not in args.evalLabels:
             continue
         # get prior of this label
         prior = getPrior(x, confMatrix)
@@ -430,8 +445,8 @@ def printConfMatrix(confMatrix, args):
             name = name[:13]
         print("\b{text:>{width}} |".format(width=13,text=name), end=' ')
         # print matrix content
-        for y in range(0, len(confMatrix[x])):
-            if (not y in args.evalLabels):
+        for y in range(len(confMatrix[x])):
+            if y not in args.evalLabels:
                 continue
             matrixFieldValue = getMatrixFieldValue(confMatrix, x, y, args)
             print(getColorEntry(matrixFieldValue, args) + "\b{text:>{width}.2f}  ".format(width=args.printRow, text=matrixFieldValue) + args.nocol, end=' ')
@@ -447,7 +462,7 @@ def printConfMatrix(confMatrix, args):
 def printClassScores(scoreList, instScoreList, args):
     if (args.quiet):
         return
-    print(args.bold + "classes          IoU      nIoU" + args.nocol)
+    print(f'{args.bold}classes          IoU      nIoU{args.nocol}')
     print("--------------------------------")
     for label in args.evalLabels:
         if (trainId2label[label].ignoreInEval):
@@ -461,7 +476,7 @@ def printClassScores(scoreList, instScoreList, args):
 def printCategoryScores(scoreDict, instScoreDict, args):
     if (args.quiet):
         return
-    print(args.bold + "categories       IoU      nIoU" + args.nocol)
+    print(f'{args.bold}categories       IoU      nIoU{args.nocol}')
     print("--------------------------------")
     for categoryName in scoreDict:
         if all( label.ignoreInEval for label in category2labels[categoryName] ):
@@ -480,7 +495,7 @@ def evaluateImgLists(predictionImgList, groundTruthImgList, args):
     nbConfWeightedPixels = 0
 
     if not args.quiet:
-        print("Evaluating {} pairs of images...".format(len(predictionImgList)))
+        print(f"Evaluating {len(predictionImgList)} pairs of images...")
 
     # Evaluate all pairs of images and save them into a matrix
     for i in range(len(predictionImgList)):
@@ -490,7 +505,10 @@ def evaluateImgLists(predictionImgList, groundTruthImgList, args):
 
         # sanity check
         if not np.isclose(confMatrix.sum(), nbConfWeightedPixels):
-            printError('Number of analyzed pixels and entries in confusion matrix disagree: contMatrix {}, pixels {}'.format(confMatrix.sum(),nbConfWeightedPixels))
+            printError(
+                f'Number of analyzed pixels and entries in confusion matrix disagree: contMatrix {confMatrix.sum()}, pixels {nbConfWeightedPixels}'
+            )
+
 
         if not args.quiet:
             print("\rImages Processed: {}".format(i+1), end=' ')
@@ -500,7 +518,10 @@ def evaluateImgLists(predictionImgList, groundTruthImgList, args):
 
     # sanity check
     if not np.isclose(confMatrix.sum(), nbConfWeightedPixels):
-        printError('Number of analyzed pixels and entries in confusion matrix disagree: contMatrix {}, pixels {}'.format(confMatrix.sum(),nbConfWeightedPixels))
+        printError(
+            f'Number of analyzed pixels and entries in confusion matrix disagree: contMatrix {confMatrix.sum()}, pixels {nbConfWeightedPixels}'
+        )
+
 
     # print confusion matrix
     if (not args.quiet):
@@ -526,19 +547,23 @@ def evaluateImgLists(predictionImgList, groundTruthImgList, args):
         iouAvgStr  = getColorEntry(getScoreAverage(classScoreList, args), args) + "{avg:5.3f}".format(avg=getScoreAverage(classScoreList, args)) + args.nocol
         niouAvgStr = getColorEntry(getScoreAverage(classInstScoreList , args), args) + "{avg:5.3f}".format(avg=getScoreAverage(classInstScoreList , args)) + args.nocol
         print("--------------------------------")
-        print("Score Average : " + iouAvgStr + "    " + niouAvgStr)
+        print(f"Score Average : {iouAvgStr}    {niouAvgStr}")
         print("--------------------------------")
         print("")
 
     # Calculate IOU scores on category level from matrix
-    categoryScoreList = {}
-    for category in category2labels.keys():
-        categoryScoreList[category] = getIouScoreForCategory(category,confMatrix,args)
+    categoryScoreList = {
+        category: getIouScoreForCategory(category, confMatrix, args)
+        for category in category2labels.keys()
+    }
 
     # Calculate instance IOU scores on category level from matrix
-    categoryInstScoreList = {}
-    for category in category2labels.keys():
-        categoryInstScoreList[category] = getInstanceIouScoreForCategory(category,confMatrix,instStats,args)
+    categoryInstScoreList = {
+        category: getInstanceIouScoreForCategory(
+            category, confMatrix, instStats, args
+        )
+        for category in category2labels.keys()
+    }
 
     # Print IOU scores
     if (not args.quiet):
@@ -547,7 +572,7 @@ def evaluateImgLists(predictionImgList, groundTruthImgList, args):
         iouAvgStr = getColorEntry(getScoreAverage(categoryScoreList, args), args) + "{avg:5.3f}".format(avg=getScoreAverage(categoryScoreList, args)) + args.nocol
         niouAvgStr = getColorEntry(getScoreAverage(categoryInstScoreList, args), args) + "{avg:5.3f}".format(avg=getScoreAverage(categoryInstScoreList, args)) + args.nocol
         print("--------------------------------")
-        print("Score Average : " + iouAvgStr + "    " + niouAvgStr)
+        print(f"Score Average : {iouAvgStr}    {niouAvgStr}")
         print("--------------------------------")
         print("")
 
@@ -575,7 +600,7 @@ def evaluatePair(predictionImgFileName, groundTruthImgFileName, confMatrix, inst
     try:
         predictionNp = np.load(predictionImgFileName).astype(np.uint8)
     except:
-        printError("Unable to load " + predictionImgFileName)
+        printError(f"Unable to load {predictionImgFileName}")
     try:
         cachedGroundTruthNpFile = os.path.splitext(groundTruthImgFileName)[0] + '_semantic3d.npz'
         if not os.path.isfile(cachedGroundTruthNpFile):
@@ -588,11 +613,16 @@ def evaluatePair(predictionImgFileName, groundTruthImgFileName, confMatrix, inst
             groundTruthNp = cachedGroundTruthNp['groundTruthNp']
             groundTruthConf = cachedGroundTruthNp['groundTruthConf']
     except:
-        printError("Unable to load " + groundTruthImgFileName)
+        printError(f"Unable to load {groundTruthImgFileName}")
 
     # Check for equal image sizes
     if (predictionNp.size != groundTruthNp.size):
-        printError("Point numbers of " + predictionImgFileName + " and " + groundTruthImgFileName + " are not equal.")
+        printError(
+            f"Point numbers of {predictionImgFileName} and "
+            + groundTruthImgFileName
+            + " are not equal."
+        )
+
     if ( len(predictionNp.shape) != 1 ):
         printError("Predicted image has multiple channels.")
 
@@ -646,10 +676,12 @@ def main():
         # use the ground truth search string specified above
         groundTruthImgList = getGroundTruth(args.groundTruthListFile)
         if not groundTruthImgList:
-            printError("Cannot find any ground truth images to use for evaluation in list: {}".format(args.groundTruthListFile))
+            printError(
+                f"Cannot find any ground truth images to use for evaluation in list: {args.groundTruthListFile}"
+            )
+
         # get the corresponding prediction for each ground truth imag
-        for gt in groundTruthImgList:
-            predictionImgList.append( getPrediction(args,gt) )
+        predictionImgList.extend(getPrediction(args,gt) for gt in groundTruthImgList)
     else:
         printError("Please specifiy the dataset and prediction root by setting environment variables KITTI360_DATASET and KITTI360_RESULTS.")
 

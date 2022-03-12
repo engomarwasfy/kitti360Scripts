@@ -84,9 +84,11 @@ def getPrediction( args, groundTruthFile ):
 
     # walk the prediction path, if not happened yet
     if not args.predictionWalk:
-        walk = []
-        for root, dirnames, filenames in os.walk(args.predictionPath):
-            walk.append( (root,filenames) )
+        walk = [
+            (root, filenames)
+            for root, dirnames, filenames in os.walk(args.predictionPath)
+        ]
+
         args.predictionWalk = walk
 
     csFile = getFileInfo(groundTruthFile)
@@ -98,10 +100,10 @@ def getPrediction( args, groundTruthFile ):
             if not predictionFile:
                 predictionFile = os.path.join(root, filename)
             else:
-                printError("Found multiple predictions for ground truth {}".format(groundTruthFile))
+                printError(f"Found multiple predictions for ground truth {groundTruthFile}")
 
     if not predictionFile:
-        printError("Found no prediction for ground truth {}".format(groundTruthFile))
+        printError(f"Found no prediction for ground truth {groundTruthFile}")
 
     return predictionFile
 
@@ -115,7 +117,10 @@ def getGroundTruth(groundTruthListFile, eval_every=1):
         printError("Could not find a result root folder. Please read the instructions of this method.")
 
     if not os.path.isfile(groundTruthListFile):
-        printError("Could not open %s. Please read the instructions of this method." % groundTruthListFile)
+        printError(
+            f"Could not open {groundTruthListFile}. Please read the instructions of this method."
+        )
+
 
     with open(groundTruthListFile, 'r') as f:
         pairs = f.read().splitlines()
@@ -129,9 +134,15 @@ def getGroundTruth(groundTruthListFile, eval_every=1):
             confidenceFile = os.path.join(os.path.dirname(os.path.dirname(groundTruthFile)),
                                           'confidence', os.path.basename(groundTruthFile))
             if not os.path.isfile(groundTruthFile):
-                printError("Could not open %s. Please read the instructions of this method." % groundTruthFile)
+                printError(
+                    f"Could not open {groundTruthFile}. Please read the instructions of this method."
+                )
+
             if not os.path.isfile(confidenceFile):
-                printError("Could not open %s. Please download the confidence maps for evaluation" % confidenceFile)
+                printError(
+                    f"Could not open {confidenceFile}. Please download the confidence maps for evaluation"
+                )
+
             groundTruthFiles.append([groundTruthFile, confidenceFile])
     return groundTruthFiles
 
@@ -155,8 +166,8 @@ else:
 if 'KITTI360_EXPORT_DIR' in os.environ:
     export_dir = os.environ['KITTI360_EXPORT_DIR']
     if not os.path.isdir(export_dir):
-        raise ValueError("KITTI360_EXPORT_DIR {} is not a directory".format(export_dir))
-    args.exportFile = "{}/resultInstanceLevelSemanticLabeling.json".format(export_dir)
+        raise ValueError(f"KITTI360_EXPORT_DIR {export_dir} is not a directory")
+    args.exportFile = f"{export_dir}/resultInstanceLevelSemanticLabeling.json"
 else:
     args.exportFile = os.path.join(args.kitti360Path, "evaluationResults", "resultInstanceLevelSemanticLabeling.json")
 
@@ -200,7 +211,7 @@ def setInstanceLabels(args):
 def readPredInfo(predInfoFileName,args):
     predInfo = {}
     if (not os.path.isfile(predInfoFileName)):
-        printError("Infofile '{}' for the predictions not found.".format(predInfoFileName))
+        printError(f"Infofile '{predInfoFileName}' for the predictions not found.")
     with open(predInfoFileName, 'r') as f:
         for line in f:
             splittedLine         = line.split(" ")
@@ -214,11 +225,16 @@ def readPredInfo(predInfoFileName,args):
 
             # check if that file is actually somewhere within the prediction root
             if os.path.commonprefix( [filename,args.predictionPath] ) != args.predictionPath:
-                printError( "Predicted mask {} in prediction text file {} points outside of prediction path.".format(filename,predInfoFileName) )
+                printError(
+                    f"Predicted mask {filename} in prediction text file {predInfoFileName} points outside of prediction path."
+                )
 
-            imageInfo            = {}
-            imageInfo["labelID"] = int(float(splittedLine[1]))
-            imageInfo["conf"]    = float(splittedLine[2])
+
+            imageInfo = {
+                "labelID": int(float(splittedLine[1])),
+                "conf": float(splittedLine[2]),
+            }
+
             predInfo[filename]   = imageInfo
 
     return predInfo
@@ -253,21 +269,19 @@ def getGtInstances(groundTruthList,args):
 
 # Filter instances, ignore labels without instances
 def filterGtInstances(singleImageInstances,args):
-    instanceDict = {}
-    for labelName in singleImageInstances:
-        if not labelName in args.instLabels:
-            continue
-        instanceDict[labelName] = singleImageInstances[labelName]
-    return instanceDict
+    return {
+        labelName: singleImageInstances[labelName]
+        for labelName in singleImageInstances
+        if labelName in args.instLabels
+    }
 
 # match ground truth instances with predicted instances
 def matchGtWithPreds(predictionList,groundTruthList,gtInstances,args):
     matches = {}
     if not args.quiet:
-        print("Matching {} pairs of images...".format(len(predictionList)))
+        print(f"Matching {len(predictionList)} pairs of images...")
 
-    count = 0
-    for (pred,(gt,gtConf)) in zip(predictionList,groundTruthList):
+    for count, (pred, (gt,gtConf)) in enumerate(zip(predictionList,groundTruthList), start=1):
         # key for dicts
         dictKey = os.path.abspath(gt)
 
@@ -284,11 +298,11 @@ def matchGtWithPreds(predictionList,groundTruthList,gtInstances,args):
         (curGtInstances,curPredInstances) = assignGt2Preds(curGtInstancesOrig, gtImage, gtConf, predInfo, args)
 
         # append to global dict
-        matches[ dictKey ] = {}
-        matches[ dictKey ]["groundTruth"] = curGtInstances
-        matches[ dictKey ]["prediction"]  = curPredInstances
+        matches[dictKey] = {
+            "groundTruth": curGtInstances,
+            "prediction": curPredInstances,
+        }
 
-        count += 1
         if not args.quiet:
             print("\rImages Processed: {}".format(count), end=' ')
             sys.stdout.flush()
@@ -300,16 +314,9 @@ def matchGtWithPreds(predictionList,groundTruthList,gtInstances,args):
 
 # For a given frame, assign all predicted instances to ground truth instances
 def assignGt2Preds(gtInstancesOrig, gtImage, gtConf, predInfo, args):
-    # In this method, we create two lists
-    #  - predInstances: contains all predictions and their associated gt
-    #  - gtInstances:   contains all gt instances and their associated predictions
-    predInstances    = {}
     predInstCount    = 0
 
-    # Create a prediction array for each class
-    for label in args.instLabels:
-        predInstances[label] = []
-
+    predInstances = {label: [] for label in args.instLabels}
     # We already know about the gt instances
     # Add the matching information array
     gtInstances = deepcopy(gtInstancesOrig)
@@ -321,10 +328,7 @@ def assignGt2Preds(gtInstancesOrig, gtImage, gtConf, predInfo, args):
     gtNp = np.array(gtImage)
 
     # Get a mask of void labels in the groundtruth
-    voidLabelIDList = []
-    for label in labels:
-        if label.ignoreInInst:
-            voidLabelIDList.append(label.id)
+    voidLabelIDList = [label.id for label in labels if label.ignoreInInst]
     boolVoid = np.in1d(gtNp, voidLabelIDList).reshape(gtNp.shape)
 
     # Loop through all prediction masks
@@ -337,7 +341,7 @@ def assignGt2Preds(gtInstancesOrig, gtImage, gtConf, predInfo, args):
         labelName = id2label[int(labelID)].name
 
         # maybe we are not interested in that label
-        if not labelName in args.instLabels:
+        if labelName not in args.instLabels:
             continue
 
         # Read the mask
@@ -356,15 +360,16 @@ def assignGt2Preds(gtInstancesOrig, gtImage, gtConf, predInfo, args):
             continue
 
         # The information we want to collect for this instance
-        predInstance = {}
-        predInstance["imgName"]          = predImageFile
-        predInstance["predID"]           = predInstCount
-        predInstance["labelID"]          = int(labelID)
-        predInstance["pixelCount"]       = weightedPredPixelCount
-        predInstance["confidence"]       = predConf
-        # Determine the number of pixels overlapping void
-        #predInstance["voidIntersection"] = np.count_nonzero( np.logical_and(boolVoid, boolPredInst) )
-        predInstance["voidIntersection"] = np.sum(gtConf[ np.logical_and(boolVoid, boolPredInst) ])
+        predInstance = {
+            "imgName": predImageFile,
+            "predID": predInstCount,
+            "labelID": int(labelID),
+            "pixelCount": weightedPredPixelCount,
+            "confidence": predConf,
+            "voidIntersection": np.sum(
+                gtConf[np.logical_and(boolVoid, boolPredInst)]
+            ),
+        }
 
         # A list of all overlapping ground truth instances
         matchedGt = []
@@ -605,8 +610,7 @@ def computeAverages(aps,args):
     d100m = np.where( np.isclose( args.distanceThs , 100. ) )
     o50   = np.where(np.isclose(args.overlaps,0.5  ))
 
-    avgDict = {}
-    avgDict["allAp"]       = np.nanmean(aps[ dInf,:,:  ])
+    avgDict = {"allAp": np.nanmean(aps[ dInf,:,:  ])}
     avgDict["allAp50%"]    = np.nanmean(aps[ dInf,:,o50])
 
     if args.distanceAvailable:
@@ -628,7 +632,7 @@ def computeAverages(aps,args):
 
 def printResults(avgDict, args):
     sep     = (","         if args.csv       else "")
-    col1    = (":"         if not args.csv   else "")
+    col1 = "" if args.csv else ":"
     noCol   = (colors.ENDC if args.colorized else "")
     bold    = (colors.BOLD if args.colorized else "")
     lineLen = 50
@@ -651,7 +655,7 @@ def printResults(avgDict, args):
     if not args.csv:
         print("#"*lineLen)
 
-    for (lI,labelName) in enumerate(args.instLabels):
+    for labelName in args.instLabels:
         apAvg  = avgDict["classes"][labelName]["ap"]
         ap50o  = avgDict["classes"][labelName]["ap50%"]
         if args.distanceAvailable:
@@ -690,9 +694,7 @@ def printResults(avgDict, args):
     print("")
 
 def prepareJSONDataForResults(avgDict, aps, args):
-    JSONData = {}
-    JSONData["averages"] = avgDict
-    JSONData["overlaps"] = args.overlaps.tolist()
+    JSONData = {"averages": avgDict, "overlaps": args.overlaps.tolist()}
     JSONData["minRegionSizes"]      = args.minRegionSizes.tolist()
     JSONData["distanceThresholds"]  = args.distanceThs.tolist()
     JSONData["minStereoDensities"]  = args.distanceConfs.tolist()
@@ -742,15 +744,20 @@ def main():
         # use the ground truth search string specified above
         groundTruthImgList = getGroundTruth(args.groundTruthListFile)
         if not groundTruthImgList:
-            printError("Cannot find any ground truth images to use for evaluation. Searched for: {}".format(args.groundTruthSearch))
+            printError(
+                f"Cannot find any ground truth images to use for evaluation. Searched for: {args.groundTruthSearch}"
+            )
+
         # get the corresponding prediction for each ground truth imag
-        for gt,_ in groundTruthImgList:
-            predictionImgList.append( getPrediction(args,gt) )
+        predictionImgList.extend(getPrediction(args,gt) for gt,_ in groundTruthImgList)
     else:
         printError("Please specifiy the dataset and prediction root by setting environment variables KITTI360_DATASET and KITTI360_RESULTS.")
 
     # print some info for user
-    print("Note that this tool uses the file '{}' to cache the ground truth instances.".format(args.gtInstancesFile))
+    print(
+        f"Note that this tool uses the file '{args.gtInstancesFile}' to cache the ground truth instances."
+    )
+
     print("If anything goes wrong, or if you change the ground truth, please delete the file.")
 
     # evaluate

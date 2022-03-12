@@ -20,17 +20,17 @@ if __name__=="__main__":
   if not os.path.isfile(pose_file):
     raise ValueError('%s does not exist! \nPlease specify KITTI360_DATASET in your system path.\nPlease check if you have downloaded system poses (data_poses.zip) and unzipped them under KITTI360_DATASET' % pose_file)
   [ts, poses] = loadPoses(pose_file)
-  print('Loaded pose file %s' % pose_file)
-  
+  print(f'Loaded pose file {pose_file}')
+
   # convert coordinate system from
   #   x=forward, y=left, z=up
   # to
   #   x=forward, y=right, z=down 
   poses = postprocessPoses(poses)
-  
+
   # convert to lat/lon coordinate
   oxts = convertPoseToOxts(poses)
-  
+
   # write to file
   output_dir = 'output'
   if not os.path.isdir(output_dir):
@@ -40,4 +40,4 @@ if __name__=="__main__":
       for oxts_ in oxts:
           oxts_ = ' '.join(['%.6f'%x for x in oxts_])
           f.write('%s\n'%oxts_)
-  print('Output written to %s' % output_file)
+  print(f'Output written to {output_file}')

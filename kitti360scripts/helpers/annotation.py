@@ -105,8 +105,16 @@ class KITTI360Bbox3D(KITTI360Object):
     def generateMeshes(self):
         self.meshes = []
         if self.vertices_proj:
-            for fidx in range(self.faces.shape[0]):
-                self.meshes.append( [ Point(self.vertices_proj[0][int(x)], self.vertices_proj[1][int(x)]) for x in self.faces[fidx]] )
+            self.meshes.extend(
+                [
+                    Point(
+                        self.vertices_proj[0][int(x)],
+                        self.vertices_proj[1][int(x)],
+                    )
+                    for x in self.faces[fidx]
+                ]
+                for fidx in range(self.faces.shape[0])
+            )
                 
     def parseOpencvMatrix(self, node):
         rows = int(node.find('rows').text)
@@ -155,15 +163,15 @@ class KITTI360Bbox3D(KITTI360Object):
     def parseStuff(self, child):
         classmap = {'driveway': 'parking', 'ground': 'terrain', 'unknownGround': 'ground', 
                     'railtrack': 'rail track'}
-        label = child.find('label').text 
-        if label in classmap.keys():
+        label = child.find('label').text
+        if label in classmap:
             label = classmap[label]
 
         self.start_frame = int(child.find('start_frame').text)
         self.end_frame = int(child.find('end_frame').text)
 
         self.semanticId = name2label[label].id
-        self.instanceId = 0 
+        self.instanceId = 0
         self.parseVertices(child)
 
 # Class that contains the information of the point cloud a single frame
@@ -298,18 +306,20 @@ class Annotation2D:
             self.instanceContours[uid] = np.expand_dims(np.abs(mask_filter)>0, 2)
 
     def toBoundaryImage(self, contourType='instance', instanceOnly=True):
-        if contourType=='semantic':
+        if contourType == 'instance':
+            contours = self.instanceContours
+        elif contourType == 'semantic':
             contours = self.semanticContours
             assert(instanceOnly==False)
-        elif contourType=='instance':
-            contours = self.instanceContours
         else:
             raise ("Contour type can only be 'semantic' or 'instance'!")
 
-        if not instanceOnly: 
-            boundaryImg = [contours[k] for k in contours.keys()]
-        else:
-            boundaryImg = [contours[k] for k in contours.keys() if global2local(k)[1]!=0]
+        boundaryImg = (
+            [contours[k] for k in contours.keys() if global2local(k)[1] != 0]
+            if instanceOnly
+            else [contours[k] for k in contours.keys()]
+        )
+
         boundaryImg = np.sum(np.asarray(boundaryImg), axis=0)
         boundaryImg = boundaryImg>0
         return boundaryImg
@@ -356,12 +366,14 @@ class Annotation3D:
     # Constructor
     def __init__(self, labelDir='', sequence=''):
 
-        labelPath = glob.glob(os.path.join(labelDir, '*', '%s.xml' % sequence)) # train or test
-        if len(labelPath)!=1:
-            raise RuntimeError('%s does not exist! Please specify KITTI360_DATASET in your environment path.' % labelPath)
-        else:
-            labelPath = labelPath[0]
-            print('Loading %s...' % labelPath)
+        labelPath = glob.glob(os.path.join(labelDir, '*', f'{sequence}.xml'))
+        if len(labelPath) != 1:
+            raise RuntimeError(
+                f'{labelPath} does not exist! Please specify KITTI360_DATASET in your environment path.'
+            )
+
+        labelPath = labelPath[0]
+        print(f'Loading {labelPath}...')
 
         self.init_instance(labelPath)
 
@@ -394,18 +406,18 @@ class Annotation3D:
 
     def __call__(self, semanticId, instanceId, timestamp=None):
         globalId = local2global(semanticId, instanceId)
-        if globalId in self.objects.keys():
-            # static object
-            if len(self.objects[globalId].keys())==1: 
-                if -1 in self.objects[globalId].keys():
-                    return self.objects[globalId][-1]
-                else:
-                    return None
-            # dynamic object
-            else:
-                return self.objects[globalId][timestamp]
-        else:
+        if globalId not in self.objects.keys():
             return None
+            # static object
+        if len(self.objects[globalId].keys())==1: 
+            return (
+                self.objects[globalId][-1]
+                if -1 in self.objects[globalId].keys()
+                else None
+            )
+
+        else:
+            return self.objects[globalId][timestamp]
 
 class Annotation3DPly:
     # parse fused 3D point cloud
@@ -415,11 +427,11 @@ class Annotation3DPly:
             # x y z r g b semanticId instanceId isVisible
             self.fmt = '=fffBBBiiB'
             self.fmt_len = 24
-        elif isLabeled and isDynamic:
+        elif isLabeled:
             # x y z r g b semanticId instanceId isVisible timestamp
             self.fmt = '=fffBBBiiBi'
             self.fmt_len = 28
-        elif not isLabeled and not isDynamic:
+        elif not isDynamic:
             # x y z r g b
             self.fmt = '=fffBBBB'
             self.fmt_len = 16
@@ -436,7 +448,7 @@ class Annotation3DPly:
         pcdFolder = 'static' if self.showStatic else 'dynamic'
         trainTestDir = 'train' if self.isLabeled else 'test'
         self.pcdFileList = sorted(glob.glob(os.path.join(labelDir, trainTestDir, sequence, pcdFolder, '*.ply')))
-        
+
         print('Found %d ply files in %s' % (len(self.pcdFileList), sequence))
 
     def readBinaryPly(self, pcdFile, n_pts=None):
@@ -505,13 +517,13 @@ class Annotation3DInstance(object):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     def to_dict(self):
-        dict = {}
-        dict["instance_id"] = self.instance_id
-        dict["labelId"]    = self.labelId
-        dict["vert_count"]  = self.vert_count
-        dict["med_dist"]    = self.med_dist
-        dict["dist_conf"]   = self.dist_conf
-        return dict
+        return {
+            "instance_id": self.instance_id,
+            "labelId": self.labelId,
+            "vert_count": self.vert_count,
+            "med_dist": self.med_dist,
+            "dist_conf": self.dist_conf,
+        }
 
     def from_json(self, data):
         self.instance_id     = int(data["instance_id"])
@@ -522,7 +534,7 @@ class Annotation3DInstance(object):
             self.dist_conf   = float(data["dist_conf"])
 
     def __str__(self):
-        return "("+str(self.instance_id)+")"
+        return f"({str(self.instance_id)})"
 
 # a dummy example
 if __name__ == "__main__":
