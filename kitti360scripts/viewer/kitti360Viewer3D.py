@@ -162,9 +162,9 @@ class Kitti360Viewer3D(object):
 
     def loadWindow(self, pcdFile, colorType='semantic', isLabeled=True, isDynamic=False):
         window = pcdFile.split(os.sep)[-2]
-        
-        print ('Loading %s ' % pcdFile)
-        
+
+        print(f'Loading {pcdFile} ')
+
         # load ply data using open3d for visualization
         if window in self.pointClouds.keys():
             pcd = self.pointClouds[window]
@@ -173,7 +173,7 @@ class Kitti360Viewer3D(object):
 
         n_pts = np.asarray(pcd.points).shape[0]
         data = self.annotation3DPly.readBinaryPly(pcdFile, n_pts)
-        
+
         if self.showVisibleOnly:
             ind = 8 if isLabeled else 6
             isVisible = data[:,ind]
@@ -189,11 +189,11 @@ class Kitti360Viewer3D(object):
 
 
         # assign color
-        if colorType=='semantic' or colorType=='instance':
+        if colorType in ['semantic', 'instance']:
             globalIds = data[:,7]
             if self.showVisibleOnly:
                 globalIds = globalIds[np.where(isVisible)[0]]
-        
+
             ptsColor = self.assignColor(globalIds, colorType)
             pcd.colors = open3d.utility.Vector3dVector(ptsColor)
         elif colorType=='bbox':
@@ -212,13 +212,15 @@ class Kitti360Viewer3D(object):
     def loadWindows(self, colorType='semantic'):
         pcdFolder = 'static' if self.showStatic else 'dynamic'
         pcdFileList = sorted(glob.glob(os.path.join(self.label3DPcdPath, self.sequence, pcdFolder, '*.ply')))
-    
+
         if not len(pcdFileList):
-            print ('%s does not exist!!' % os.path.join(self.label3DPcdPath, self.sequence, '*', pcdName))
+            print(
+                f"{os.path.join(self.label3DPcdPath, self.sequence, '*', pcdName)} does not exist!!"
+            )
+
             return None
 
-        for idx,pcdFile in enumerate(pcdFileList):
-
+        for pcdFile in pcdFileList:
             window = pcdFile.split('/')[-2]
             pcd = self.loadWindow(pcdFile, colorType)
 
@@ -257,10 +259,7 @@ class Kitti360Viewer3D(object):
                 points=obj.vertices
                 color = self.assignColor(0, 'semantic')
                 semanticId, instanceId = global2local(globalId)
-                if 'pole' in id2label[semanticId].name:
-                    radius = 0.05
-                else:
-                    radius = 0.08
+                radius = 0.05 if 'pole' in id2label[semanticId].name else 0.08
                 color = np.tile(color, (lines.shape[0],1))
                 line_set = open3d.geometry.LineSet(
                                 points=open3d.utility.Vector3dVector(points),
@@ -305,8 +304,8 @@ if __name__=='__main__':
 
     if args.mode!='bbox':
 
-        pcdFileList = v.annotation3DPly.pcdFileList 
-        for idx,pcdFile in enumerate(pcdFileList):
+        pcdFileList = v.annotation3DPly.pcdFileList
+        for pcdFile in pcdFileList:
             pcd = v.loadWindow(pcdFile, args.mode)
             if len(np.asarray(pcd.points))==0:
                 print('Warning: skipping empty point cloud!')

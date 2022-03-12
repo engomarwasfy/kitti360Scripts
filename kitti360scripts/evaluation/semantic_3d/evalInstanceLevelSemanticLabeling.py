@@ -78,9 +78,11 @@ def getPrediction( args, groundTruthFile ):
 
     # walk the prediction path, if not happened yet
     if not args.predictionWalk:
-        walk = []
-        for root, dirnames, filenames in os.walk(args.predictionPath):
-            walk.append( (root,filenames) )
+        walk = [
+            (root, filenames)
+            for root, dirnames, filenames in os.walk(args.predictionPath)
+        ]
+
         args.predictionWalk = walk
 
 
@@ -94,7 +96,10 @@ def getPrediction( args, groundTruthFile ):
             if not predictionTxtFile:
                 predictionTxtFile = os.path.join(root, filename)
             else:
-                printError("Found multiple .txt predictions for ground truth {}".format(groundTruthFile))
+                printError(
+                    f"Found multiple .txt predictions for ground truth {groundTruthFile}"
+                )
+
 
     predictionNpyFile = None
     for root, filenames in args.predictionWalk:
@@ -102,13 +107,16 @@ def getPrediction( args, groundTruthFile ):
             if not predictionNpyFile:
                 predictionNpyFile = os.path.join(root, filename)
             else:
-                printError("Found multiple .npy predictions for ground truth {}".format(groundTruthFile))
+                printError(
+                    f"Found multiple .npy predictions for ground truth {groundTruthFile}"
+                )
+
 
     if not predictionTxtFile:
-        print("Found no .txt prediction for ground truth {}".format(groundTruthFile))
+        print(f"Found no .txt prediction for ground truth {groundTruthFile}")
 
     if not predictionNpyFile:
-        print("Found no .npy prediction for ground truth {}".format(groundTruthFile))
+        print(f"Found no .npy prediction for ground truth {groundTruthFile}")
 
     return (predictionTxtFile, predictionNpyFile)
 
@@ -123,7 +131,10 @@ def getGroundTruth(groundTruthListFile, eval_every=1):
         printError("Could not find a result root folder. Please read the instructions of this method.")
 
     if not os.path.isfile(groundTruthListFile):
-        printError("Could not open %s. Please read the instructions of this method." % groundTruthListFile)
+        printError(
+            f"Could not open {groundTruthListFile}. Please read the instructions of this method."
+        )
+
 
     with open(groundTruthListFile, 'r') as f:
         lines = f.read().splitlines()
@@ -133,7 +144,10 @@ def getGroundTruth(groundTruthListFile, eval_every=1):
         if i % eval_every == 0:
             groundTruthFile = os.path.join(rootPath, line)
             if not os.path.isfile(groundTruthFile):
-                printError("Could not open %s. Please read the instructions of this method." % groundTruthFile)
+                printError(
+                    f"Could not open {groundTruthFile}. Please read the instructions of this method."
+                )
+
             groundTruthFiles.append(groundTruthFile)
     return groundTruthFiles
 
@@ -157,8 +171,8 @@ else:
 if 'KITTI360_EXPORT_DIR' in os.environ:
     export_dir = os.environ['KITTI360_EXPORT_DIR']
     if not os.path.isdir(export_dir):
-        raise ValueError("KITTI360_EXPORT_DIR {} is not a directory".format(export_dir))
-    args.exportFile = "{}/resultInstanceLevelSemanticLabeling.json".format(export_dir)
+        raise ValueError(f"KITTI360_EXPORT_DIR {export_dir} is not a directory")
+    args.exportFile = f"{export_dir}/resultInstanceLevelSemanticLabeling.json"
 else:
     args.exportFile = os.path.join(args.kitti360Path, "evaluationResults", "resultInstanceLevelSemanticLabeling.json")
 
@@ -167,7 +181,7 @@ args.groundTruthListFile = os.path.join(args.kitti360Path, 'data_3d_semantics', 
 
 # classes for evaluation 
 args.validClassLabels = ['building', 'car']
-args.validClassIds    = [name2label[l].trainId for l in args.validClassLabels] 
+args.validClassIds    = [name2label[l].trainId for l in args.validClassLabels]
 args.id2label = {}
 args.label2id = {}
 for i in range(len(args.validClassIds)):
@@ -198,9 +212,7 @@ args.predictionWalk = None
 
 # Determine the labels that have instances
 def setInstanceLabels(args):
-    args.instLabels = []
-    for label in args.validClassLabels:
-        args.instLabels.append(label)
+    args.instLabels = list(args.validClassLabels)
 
 # Read prediction info
 # imgFile, predId, confidence
@@ -208,22 +220,24 @@ def readPredInfo(predInfoFileNames,args):
     predInfo = {}
     predInfoFileName, predMaskFileName = predInfoFileNames
     if (not os.path.isfile(predInfoFileName)):
-        printError("Infofile '{}' for the predictions not found.".format(predInfoFileName))
+        printError(f"Infofile '{predInfoFileName}' for the predictions not found.")
     with open(predInfoFileName, 'r') as f:
         for i, line in enumerate(f):
             splittedLine         = line.split(" ")
             if len(splittedLine) != 2:
                 printError( "Invalid prediction file. Expected content: labelIDPrediction1 confidencePrediction1" )
 
-            imageInfo            = {}
-            imageInfo["labelId"] = int(float(splittedLine[0]))
-            imageInfo["conf"]    = float(splittedLine[1])
+            imageInfo = {
+                "labelId": int(float(splittedLine[0])),
+                "conf": float(splittedLine[1]),
+            }
+
             # Convert id to trainId
             imageInfo["labelId"] = id2label[imageInfo["labelId"]].trainId
             predInfo[i]   = imageInfo
     # Load prediction mask in a single numpy file
     if (not os.path.isfile(predMaskFileName)):
-        printError("Mask file '{}' for the predictions not found.".format(predMaskFileName))
+        printError(f"Mask file '{predMaskFileName}' for the predictions not found.")
 
     predMask = np.load(predMaskFileName)
 
@@ -262,9 +276,7 @@ def readGTImage(groundTruthImgFileName):
     return groundTruthInstance, groundTruthConf
 
 def getGTInstances(gtIds, gtConf, class_ids, class_labels, id2label):
-    instances = {}
-    for label in class_labels:
-        instances[label] = []
+    instances = {label: [] for label in class_labels}
     instance_ids = np.unique(gtIds)
     for id in instance_ids:
         if id == 0:
@@ -437,9 +449,7 @@ def computeAverages(aps, args):
     o50   = np.where(np.isclose(args.overlaps,0.5))
     o25   = np.where(np.isclose(args.overlaps,0.25))
     oAllBut25  = np.where(np.logical_not(np.isclose(args.overlaps,0.25)))
-    avg_dict = {}
-    #avg_dict['allAp']     = np.nanmean(aps[ dInf,:,:  ])
-    avg_dict['allAp']     = np.nanmean(aps[ dInf,:,oAllBut25])
+    avg_dict = {'allAp': np.nanmean(aps[ dInf,:,oAllBut25])}
     avg_dict['allAp50%'] = np.nanmean(aps[ dInf,:,o50])
     avg_dict['allAp25%'] = np.nanmean(aps[ dInf,:,o25])
     avg_dict["classes"]  = {}
@@ -455,10 +465,9 @@ def computeAverages(aps, args):
 def matchGtWithPreds(predictionList,groundTruthList,args):
     matches = {}
     if not args.quiet:
-        print("Matching {} pairs of images...".format(len(predictionList)))
+        print(f"Matching {len(predictionList)} pairs of images...")
 
-    count = 0
-    for (pred,gt) in zip(predictionList,groundTruthList):
+    for count, (pred, gt) in enumerate(zip(predictionList,groundTruthList), start=1):
         # key for dicts
         dictKey = os.path.abspath(gt)
 
@@ -470,11 +479,11 @@ def matchGtWithPreds(predictionList,groundTruthList,args):
         (curGtInstances,curPredInstances) = assignGt2Preds(test_scene_name, predInfo, gt)
 
         # append to global dict
-        matches[ dictKey ] = {}
-        matches[ dictKey ]["groundTruth"] = curGtInstances
-        matches[ dictKey ]["prediction"]  = curPredInstances
+        matches[dictKey] = {
+            "groundTruth": curGtInstances,
+            "prediction": curPredInstances,
+        }
 
-        count += 1
         if not args.quiet:
             print("\rImages Processed: {}".format(count), end=' ')
             sys.stdout.flush()

@@ -18,10 +18,7 @@ class Instance(object):
         self.pixelCount = self.getWeightedInstancePixels(imgNp, imgConf, instID)
 
     def getLabelID(self, instID):
-        if (instID < 1000):
-            return instID
-        else:
-            return int(instID / 1000)
+        return instID if (instID < 1000) else int(instID / 1000)
 
     def getInstancePixels(self, imgNp, instLabel):
         return (imgNp == instLabel).sum()
@@ -33,13 +30,13 @@ class Instance(object):
         return json.dumps(self, default=lambda o: o.__dict__, sort_keys=True, indent=4)
 
     def toDict(self):
-        buildDict = {}
-        buildDict["instID"]     = self.instID
-        buildDict["labelID"]    = self.labelID
-        buildDict["pixelCount"] = self.pixelCount
-        buildDict["medDist"]    = self.medDist
-        buildDict["distConf"]   = self.distConf
-        return buildDict
+        return {
+            "instID": self.instID,
+            "labelID": self.labelID,
+            "pixelCount": self.pixelCount,
+            "medDist": self.medDist,
+            "distConf": self.distConf,
+        }
 
     def fromJSON(self, data):
         self.instID     = int(data["instID"])
@@ -50,4 +47,4 @@ class Instance(object):
             self.distConf   = float(data["distConf"])
 
     def __str__(self):
-        return "("+str(self.instID)+")"
+        return f"({str(self.instID)})"

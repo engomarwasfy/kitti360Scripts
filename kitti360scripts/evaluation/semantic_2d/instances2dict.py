@@ -15,16 +15,15 @@ from kitti360scripts.helpers.csHelpers import *
 MAX_CONFIDENCE=65535.0
 
 def instances2dict(imageFileList, verbose=False):
-    imgCount     = 0
     instanceDict = {}
 
     if not isinstance(imageFileList, list):
         imageFileList = [imageFileList]
 
     if verbose:
-        print("Processing {} images...".format(len(imageFileList)))
+        print(f"Processing {len(imageFileList)} images...")
 
-    for imageFileName,imageConfFileName in imageFileList:
+    for imgCount, (imageFileName, imageConfFileName) in enumerate(imageFileList, start=1):
         # Load image
         img = Image.open(imageFileName)
 
@@ -38,10 +37,7 @@ def instances2dict(imageFileList, verbose=False):
         imgConf = np.array(imgConf) / MAX_CONFIDENCE
 
         # Initialize label categories
-        instances = {}
-        for label in labels:
-            instances[label.name] = []
-
+        instances = {label.name: [] for label in labels}
         # Loop through all instance ids in instance image
         for instanceId in np.unique(imgNp):
             instanceObj = Instance(imgNp, imgConf, instanceId)
@@ -56,8 +52,6 @@ def instances2dict(imageFileList, verbose=False):
 
         imgKey = os.path.abspath(imageFileName)
         instanceDict[imgKey] = instances
-        imgCount += 1
-
         if verbose:
             print("\rImages Processed: {}".format(imgCount), end=' ')
             sys.stdout.flush()
@@ -70,9 +64,7 @@ def instances2dict(imageFileList, verbose=False):
 def main(argv):
     fileList = []
     if (len(argv) > 2):
-        for arg in argv:
-            if ("png" in arg):
-                fileList.append(arg)
+        fileList.extend(arg for arg in argv if ("png" in arg))
     instances2dict(fileList, True)
 
 if __name__ == "__main__":

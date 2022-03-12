@@ -18,8 +18,7 @@ def mercatorToLatlon(mx,my,scale):
 
 def latToScale(lat):
   ''' compute mercator scale from latitude '''
-  scale = np.cos(lat * np.pi / 180.0);
-  return scale
+  return np.cos(lat * np.pi / 180.0)
 
 def postprocessPoses (poses_in):
 

@@ -6,9 +6,9 @@ class KITTI360(object):
 
         if cam!=0:
             raise NotImplementedError('Please generate cam%d_to_world.txt at first!')
-    
+
         # intrinsics
-        calib_dir = '%s/calibration' % (data_dir)
+        calib_dir = f'{data_dir}/calibration'
         self.intrinsic_file = os.path.join(calib_dir, 'perspective.txt')
 
         # camera poses 
@@ -16,9 +16,12 @@ class KITTI360(object):
         self.pose_file = os.path.join(sequence_dir, 'cam%d_to_world.txt' % cam)
         self.image_dir = '%s/image_%02d/data_rect/' % (sequence_dir, cam)
 
-        assert os.path.isfile(self.pose_file), '%s does not exist!' % self.pose_file
-        assert os.path.isfile(self.intrinsic_file), '%s does not exist!' % self.intrinsic_file
-        
+        assert os.path.isfile(self.pose_file), f'{self.pose_file} does not exist!'
+        assert os.path.isfile(
+            self.intrinsic_file
+        ), f'{self.intrinsic_file} does not exist!'
+
+
         print('-----------------------------------------------')
         print('Loading KITTI-360, sequence %04d, camera %d' % (seq, cam))
         print('-----------------------------------------------')
@@ -67,7 +70,7 @@ class KITTI360(object):
         pose = self.poses[idx]
         basename = '%010d.png' % frame
         image_file = os.path.join(self.image_dir, basename)
-        assert os.path.isfile(image_file), '%s does not exist!' % image_file
+        assert os.path.isfile(image_file), f'{image_file} does not exist!'
         print(pose)
         print(image_file)
         return 
